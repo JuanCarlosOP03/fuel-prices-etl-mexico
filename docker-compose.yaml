@@ -1,0 +1,163 @@
+x-airflow-common:
+  &airflow-common
+  image: airflow-webserver-bi:2.10.0
+  build:
+    context: ./
+    dockerfile: Dockerfile.Airflow
+    args:
+        AIRFLOW_VERSION: 2.10.0
+  env_file:
+    - ./airflow.env
+  environment:
+    &airflow-common-env
+    AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
+  volumes:
+    - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
+    - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
+    - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
+    - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
+  user: "${AIRFLOW_UID:-50000}:0"
+  depends_on:
+    &airflow-common-depends-on
+    airflow-metadata:
+      condition: service_healthy
+
+x-spark-common:
+  &spark-common
+  image: spark_base_image:3.5.2
+  build:
+    context: ./
+    dockerfile: Dockerfile.Spark
+    args:
+        SPARK_VERSION: 3.5.2
+  env_file:
+    - ./spark.env
+  volumes:
+      - ./data:/opt/spark/data
+      - ./spark_apps:/opt/spark/apps
+      - spark-logs:/opt/spark/spark-events
+
+services:
+  airflow-metadata:
+    container_name: airflow-metadata
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: xugf8TG2dRP6TNydF
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+    ports:
+      - "5432:5432"
+
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: airflow-webserver
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: airflow-scheduler
+    command: scheduler
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8974/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: always
+    depends_on:
+      <<: *airflow-common-depends-on
+      airflow-init:
+        condition: service_completed_successfully
+
+  airflow-init:
+    <<: *airflow-common
+    entrypoint: /bin/bash
+    command:
+      - -c
+      - |
+
+        sudo chmod -R 755 /opt/airflow/
+
+        echo "Initializing Airflow database"
+
+        airflow db init
+        echo "Airflow database initialized"
+        exec /entrypoint airflow version
+
+    environment:
+      <<: *airflow-common-env
+      _AIRFLOW_DB_MIGRATE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _PIP_ADDITIONAL_REQUIREMENTS: ''
+    user: "0:0"
+    volumes:
+      - ${AIRFLOW_PROJ_DIR:-.}:/sources
+
+
+  # ----- Spark Containers
+  spark-master:
+    <<: *spark-common
+    container_name: spark-master
+    build:
+      context: .
+      target: pyspark
+    entrypoint: ['./entrypoint.sh', 'master']
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080" ]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+    ports:
+      - '4040:4040'
+      - '9090:8080'
+      - '7077:7077'
+
+  spark-history-server:
+    <<: *spark-common
+    container_name: spark-history
+    entrypoint: ['./entrypoint.sh', 'history']
+    depends_on:
+      - spark-master
+    volumes:
+      - spark-logs:/opt/spark/spark-events
+    ports:
+      - '18080:18080'
+
+  spark-worker:
+    <<: *spark-common
+    container_name: spark-worker
+    entrypoint: ['./entrypoint.sh', 'worker']
+    depends_on:
+      - spark-master
+    volumes:
+      - ./data:/opt/spark/data
+      - ./spark_apps:/opt/spark/apps
+      - spark-logs:/opt/spark/spark-events
+      - ./notebooks:/opt/notebooks
+    ports:
+      - '8081:8081'
+
+volumes:
+  postgres-db-volume:
+  spark-logs:

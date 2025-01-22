@@ -1,0 +1,28 @@
+ARG AIRFLOW_VERSION=2.10.0
+
+FROM apache/airflow:${AIRFLOW_VERSION}
+
+USER airflow  
+WORKDIR /opt/airflow/
+
+# Copiar y instalar dependencias de Python desde requirements.txt (incluye playwright)
+COPY requirements.txt /opt/airflow/requirements.txt
+COPY dataflow.cfg /opt/airflow/dataflow.cfg
+COPY airflow.env /opt/airflow/airflow.env
+
+RUN pip install --no-cache-dir -r /opt/airflow/requirements.txt
+
+USER root   
+
+RUN apt-get update 
+RUN apt-get install -y openjdk-17-jdk
+RUN apt-get install curl mlocate git scala -y
+RUN apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+
+ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+
+ENV PATH=~airflow/.local/bin:$PATH
+ENV PYSPARK_PYTHON=python3
+    
