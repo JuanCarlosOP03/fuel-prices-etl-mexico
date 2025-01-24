@@ -2,12 +2,12 @@ x-airflow-common:
   &airflow-common
   image: airflow-webserver-bi:2.10.0
   build:
-    context: ./
+    context: ${AIRFLOW_PROJ_DIR:-.}/
     dockerfile: Dockerfile.Airflow
     args:
         AIRFLOW_VERSION: 2.10.0
   env_file:
-    - ./airflow.env
+    - ${AIRFLOW_PROJ_DIR:-.}/config/airflow.env
   environment:
     &airflow-common-env
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
@@ -16,6 +16,9 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
+    - ${AIRFLOW_PROJ_DIR:-.}/data:/opt/spark/data
+  networks:
+      - airflow_spark_network
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
@@ -26,15 +29,20 @@ x-spark-common:
   &spark-common
   image: spark_base_image:3.5.2
   build:
-    context: ./
+    context: ${AIRFLOW_PROJ_DIR:-.}/
     dockerfile: Dockerfile.Spark
     args:
         SPARK_VERSION: 3.5.2
   env_file:
-    - ./spark.env
+    - ${AIRFLOW_PROJ_DIR:-.}/config/spark.env
+  user: "${AIRFLOW_UID:-50000}:0"
+  networks:
+      - airflow_spark_network
   volumes:
-      - ./data:/opt/spark/data
-      - ./spark_apps:/opt/spark/apps
+      - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
+      - ${AIRFLOW_PROJ_DIR:-.}/data:/opt/spark/data
+      - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
+      - ${AIRFLOW_PROJ_DIR:-.}/spark_apps:/opt/spark/apps
       - spark-logs:/opt/spark/spark-events
 
 services:
@@ -55,6 +63,8 @@ services:
     restart: always
     ports:
       - "5432:5432"
+    networks:
+      - airflow_spark_network
 
   airflow-webserver:
     <<: *airflow-common
@@ -83,7 +93,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 30s
+      start_period: 30ss
     restart: always
     depends_on:
       <<: *airflow-common-depends-on
@@ -139,8 +149,6 @@ services:
     entrypoint: ['./entrypoint.sh', 'history']
     depends_on:
       - spark-master
-    volumes:
-      - spark-logs:/opt/spark/spark-events
     ports:
       - '18080:18080'
 
@@ -150,14 +158,13 @@ services:
     entrypoint: ['./entrypoint.sh', 'worker']
     depends_on:
       - spark-master
-    volumes:
-      - ./data:/opt/spark/data
-      - ./spark_apps:/opt/spark/apps
-      - spark-logs:/opt/spark/spark-events
-      - ./notebooks:/opt/notebooks
     ports:
       - '8081:8081'
 
 volumes:
   postgres-db-volume:
   spark-logs:
+
+networks:
+  airflow_spark_network:
+    driver: bridge

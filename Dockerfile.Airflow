@@ -7,8 +7,6 @@ WORKDIR /opt/airflow/
 
 # Copiar y instalar dependencias de Python desde requirements.txt (incluye playwright)
 COPY requirements.txt /opt/airflow/requirements.txt
-COPY dataflow.cfg /opt/airflow/dataflow.cfg
-COPY airflow.env /opt/airflow/airflow.env
 
 RUN pip install --no-cache-dir -r /opt/airflow/requirements.txt
 
@@ -26,3 +24,4 @@ ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 ENV PATH=~airflow/.local/bin:$PATH
 ENV PYSPARK_PYTHON=python3
     
+USER airflow  

@@ -15,4 +15,5 @@ pyspark==3.5.2
 pdfplumber==0.11.4
 python-dotenv==1.0.1
 apache-airflow-providers-apache-spark==5.0.0
+pyarrow==19.0.0
 
