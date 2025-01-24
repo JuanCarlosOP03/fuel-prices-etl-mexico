@@ -93,7 +93,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 30ss
+      start_period: 30s
     restart: always
     depends_on:
       <<: *airflow-common-depends-on
@@ -106,9 +106,6 @@ services:
     command:
       - -c
       - |
-
-        sudo chmod -R 755 /opt/airflow/
-
         echo "Initializing Airflow database"
 
         airflow db init

@@ -48,15 +48,21 @@ COPY ./config/spark-defaults.conf "$SPARK_HOME/conf"
 
 USER root  
 
-RUN chown -R airflow:airflow /opt/spark
-RUN sudo chmod u+rx,g+rx,o+rx /opt/spark/sbin/* && \
-    sudo chmod u+rx,g+rx,o+rx /opt/spark/bin/*
+RUN chown -R airflow:root /opt/spark/
+RUN chmod -R 775 /opt/spark/
+
+RUN mkdir /opt/airflow/
+RUN chown -R airflow:root /opt/airflow/
+RUN chmod -R 775 /opt/airflow/
+
+RUN sudo chmod u+rx,g+rx /opt/spark/sbin/* /opt/spark/bin/*
 
 # Copy appropriate entrypoint script
 COPY entrypoint.sh .
 
 ENTRYPOINT ["./entrypoint.sh"]
 
-RUN chmod u+rx,g+rx,o+rx ./entrypoint.sh
+RUN chmod u+rx,g+rx ./entrypoint.sh
+RUN usermod -aG root airflow
 
 USER airflow  

@@ -11,6 +11,9 @@ COPY requirements.txt /opt/airflow/requirements.txt
 RUN pip install --no-cache-dir -r /opt/airflow/requirements.txt
 
 USER root   
+RUN mkdir /opt/spark/ 
+RUN chown -R airflow:root /opt/spark/
+RUN chmod -R 775 /opt/airflow/
 
 RUN apt-get update 
 RUN apt-get install -y openjdk-17-jdk
@@ -24,4 +27,5 @@ ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 ENV PATH=~airflow/.local/bin:$PATH
 ENV PYSPARK_PYTHON=python3
     
+
 USER airflow  
