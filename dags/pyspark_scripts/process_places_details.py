@@ -8,6 +8,7 @@ from pyspark.sql.types import FloatType, IntegerType
 import pdfplumber
 import logging
 import datetime as dt
+import json
 
 Logger = logging.getLogger(__name__)
 settings = AppSettings()
@@ -19,7 +20,7 @@ spark = SparkSession.builder \
     
 places_detail = os.path.join(settings.path_data, 'data/ext/places_detail.pdf')
 
-cols = ['turn', 'permission', 'place_name', 'place_code', 'date_entry', 
+cols = ['turn', 'cre_id', 'place_name', 'place_code', 'date_entry', 
         'plenary_date', 'address', 'colony', 'cp', 'city', 'state']
 
 data = []
@@ -43,7 +44,7 @@ df = df.filter(df.colony != 'Colonia')
 Logger.info('selecting and casting columns of prices table')
 df = df.select(
         ps_func.col('turn'),
-        ps_func.col('permission'),
+        ps_func.col('cre_id'),
         ps_func.col('place_name'),
         ps_func.col('place_code'),
         ps_func.col('date_entry'),
@@ -66,7 +67,10 @@ spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", conf_s3.get('AWS_ACCES
 spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", conf_s3.get('AWS_SECRET_ACCESS_KEY'))
 spark._jsc.hadoopConfiguration().set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
 
+path = f"s3a://{conf_s3.get('AWS_S3_BUCKET')}/data/fuel_data/places_details.parquet"
+
 df.write \
     .format("parquet") \
     .mode("overwrite")\
-    .save(f"s3a://{conf_s3.get('AWS_S3_BUCKET')}/data/fuel_data/{dt.date.today().strftime('%Y%m%d')}/places_details.parquet")
+    .save(path)
+

@@ -17,7 +17,6 @@ def data_extractor(url: str, filebasename, **kwargs):
         response.raise_for_status()
         
     data = response.content
-    print(settings.path_data)
     
     file_path = os.path.join(settings.path_data, 'data/ext', filebasename)
     os.makedirs(os.path.join(settings.path_data, 'data/ext'), exist_ok=True)

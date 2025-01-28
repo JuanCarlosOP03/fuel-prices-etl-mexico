@@ -8,6 +8,7 @@ from pyspark.sql.types import FloatType, IntegerType
 import pdfplumber
 import logging
 import datetime as dt
+import json
 
 Logger = logging.getLogger(__name__)
 settings = AppSettings()
@@ -46,7 +47,9 @@ spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", conf_s3.get('AWS_ACCES
 spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", conf_s3.get('AWS_SECRET_ACCESS_KEY'))
 spark._jsc.hadoopConfiguration().set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
 
+path = f"s3a://{conf_s3.get('AWS_S3_BUCKET')}/data/fuel_data/places.parquet"
 df.write \
     .format("parquet") \
     .mode("overwrite")\
-    .save(f"s3a://{conf_s3.get('AWS_S3_BUCKET')}/data/fuel_data/{dt.date.today().strftime('%Y%m%d')}/places.parquet")
+    .save(f"s3a://{conf_s3.get('AWS_S3_BUCKET')}/data/fuel_data/places.parquet")
+    

@@ -8,6 +8,7 @@ from pyspark.sql.types import FloatType, IntegerType
 import pdfplumber
 import logging
 import datetime as dt
+import json 
 
 Logger = logging.getLogger(__name__)
 settings = AppSettings()
@@ -30,12 +31,13 @@ Logger.info('exploding the gas_price column')
 df = df.withColumn("gas_price", ps_func.explode("gas_price"))
 
 Logger.info('selecting and casting columns of prices table')
+
 df = df.select(
     ps_func.col("_place_id").cast(IntegerType()).alias("place_id"),
-    ps_func.col("gas_price._VALUE").cast(FloatType()).alias("price"),
-    ps_func.col("gas_price._type").alias("type_product")
+    ps_func.when(ps_func.col("gas_price._type") == 'diesel', 'diesel').otherwise('gasolina').alias('fuel_type'),
+    ps_func.col("gas_price._type").alias("type_product"),
+    ps_func.col("gas_price._VALUE").cast(FloatType()).alias("price")
 )
-df = df.withColumn("fuel_type", ps_func.when(df.type_product == 'diesel', 'diesel').otherwise('gasolina'))
 
 Logger.info('writing the final file of the prices table')
 
@@ -48,7 +50,8 @@ spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", conf_s3.get('AWS_ACCES
 spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", conf_s3.get('AWS_SECRET_ACCESS_KEY'))
 spark._jsc.hadoopConfiguration().set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
 
+path = f"s3a://{conf_s3.get('AWS_S3_BUCKET')}/data/fuel_data/prices.parquet"
 df.write \
     .format("parquet") \
     .mode("overwrite")\
-    .save(f"s3a://{conf_s3.get('AWS_S3_BUCKET')}/data/fuel_data/{dt.date.today().strftime('%Y%m%d')}/prices.parquet")
+    .save(path)
