@@ -85,11 +85,13 @@ celerybeat.pid
 *.sage.py
 .env
 .venv
+jars
 book_data
 notebooks
 plugins
 spark_apps
 env/
+data/
 venv/
 ENV/
 env.bak/
