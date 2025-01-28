@@ -3,7 +3,8 @@ FROM python:3.12.5
 ARG SPARK_VERSION=3.5.2
 
 USER root  
-# Install tools required by the OS
+
+#Installation of Apache Spark Dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       sudo \
@@ -19,7 +20,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 
-# Setup the directories for our Spark and Hadoop installations
+#Set up folder used by Apache Spark 
 ENV SPARK_HOME=/opt/spark
 ENV HADOOP_HOME=/opt/hadoop
 ENV PATH=/opt/spark/sbin:/opt/spark/bin:${PATH}
@@ -27,37 +28,45 @@ ENV PATH=/opt/spark/sbin:/opt/spark/bin:${PATH}
 RUN mkdir -p ${HADOOP_HOME} && mkdir -p ${SPARK_HOME}
 WORKDIR ${SPARK_HOME}
 
-# Download and install Spark
+#Installation  of Apache Spark and Hadoop
 RUN curl https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop3.tgz -o spark-${SPARK_VERSION}-bin-hadoop3.tgz \
  && tar xvzf spark-${SPARK_VERSION}-bin-hadoop3.tgz --directory /opt/spark --strip-components 1 \
  && rm -rf spark-${SPARK_VERSION}-bin-hadoop3.tgz
 
 
+#Download of Jars to save in S3, compatible with Hadoop 3.3.4 version
+RUN curl https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.262/aws-java-sdk-bundle-1.12.262.jar -o aws-java-sdk-bundle-1.12.262.jar && mv aws-java-sdk-bundle-1.12.262.jar ./jars/
+RUN curl https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-core/1.12.262/aws-java-sdk-core-1.12.262.jar -o aws-java-sdk-core-1.12.262.jar && mv aws-java-sdk-core-1.12.262.jar ./jars/
+RUN curl https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar -o hadoop-aws-3.3.4.jar && mv hadoop-aws-3.3.4.jar ./jars/
+RUN curl https://repo1.maven.org/maven2/com/databricks/spark-xml_2.12/0.14.0/spark-xml_2.12-0.14.0.jar -o spark-xml_2.12-0.14.0.jar && mv spark-xml_2.12-0.14.0.jar ./jars/
+
+RUN mv *.jar /opt/spark/jars/
+
+#Create user Airflow
 RUN useradd -m airflow
 USER airflow
 
-USER airflow  
-
-# Install python deps
+#Installation Python Requeriments
 COPY requirements.txt .
 RUN pip3 install -r requirements.txt
 
-
-# Copy the default configurations into $SPARK_HOME/conf
 COPY ./config/spark-defaults.conf "$SPARK_HOME/conf"
 
+#Set Up Apache Spark folder and User Airfow permissions
 USER root  
 
 RUN chown -R airflow:root /opt/spark/
 RUN chmod -R 775 /opt/spark/
 
-RUN mkdir /opt/airflow/
+RUN mkdir /opt/airflow/ /opt/spark/spark-events/ 
+RUN chmod -R g+w /opt/spark/spark-events
 RUN chown -R airflow:root /opt/airflow/
 RUN chmod -R 775 /opt/airflow/
 
 RUN sudo chmod u+rx,g+rx /opt/spark/sbin/* /opt/spark/bin/*
 
-# Copy appropriate entrypoint script
+
+#Copy start script and Add execution permissions
 COPY entrypoint.sh .
 
 ENTRYPOINT ["./entrypoint.sh"]
@@ -66,3 +75,4 @@ RUN chmod u+rx,g+rx ./entrypoint.sh
 RUN usermod -aG root airflow
 
 USER airflow  
+COPY ./jars/* /opt/spark/jars/

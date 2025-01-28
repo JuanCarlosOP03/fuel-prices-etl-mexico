@@ -17,6 +17,7 @@ x-airflow-common:
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
     - ${AIRFLOW_PROJ_DIR:-.}/data:/opt/spark/data
+    - ${AIRFLOW_PROJ_DIR:-.}/jars:/opt/spark/custom-jars
   networks:
       - airflow_spark_network
   user: "${AIRFLOW_UID:-50000}:0"
@@ -43,6 +44,7 @@ x-spark-common:
       - ${AIRFLOW_PROJ_DIR:-.}/data:/opt/spark/data
       - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
       - ${AIRFLOW_PROJ_DIR:-.}/spark_apps:/opt/spark/apps
+      - ${AIRFLOW_PROJ_DIR:-.}/jars:/opt/spark/custom-jars
       - spark-logs:/opt/spark/spark-events
 
 services:
