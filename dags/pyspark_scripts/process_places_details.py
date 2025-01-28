@@ -7,6 +7,7 @@ from pyspark.sql import SparkSession, Row, types as ps_types, functions as ps_fu
 from pyspark.sql.types import FloatType, IntegerType
 import pdfplumber
 import logging
+import datetime as dt
 
 Logger = logging.getLogger(__name__)
 settings = AppSettings()
@@ -54,10 +55,18 @@ df = df.select(
         ps_func.col('state')
 )
 
-path_name = os.path.join(settings.path_data, 'data/trans', 'places_details.parquet')
-os.makedirs(os.path.join(settings.path_data, 'data/trans'), exist_ok=True)
-if os.path.exists(path_name):
-    shutil.rmtree(path_name)
+Logger.info('writing the final file of the places_details table')
 
-Logger.info('writing the final file of the prices table')
-df.write.parquet(path_name)
+conf_s3 = settings.conf_s3
+
+spark._jsc.hadoopConfiguration().set("fs.s3a.path.style.access", "true")
+spark._jsc.hadoopConfiguration().set("fs.s3a.region", conf_s3.get('AWS_REGION'))
+spark._jsc.hadoopConfiguration().set("fs.s3a.endpoint", conf_s3.get('AWS_S3_ENDPOINT'))
+spark._jsc.hadoopConfiguration().set("fs.s3a.access.key", conf_s3.get('AWS_ACCESS_KEY_ID'))
+spark._jsc.hadoopConfiguration().set("fs.s3a.secret.key", conf_s3.get('AWS_SECRET_ACCESS_KEY'))
+spark._jsc.hadoopConfiguration().set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
+
+df.write \
+    .format("parquet") \
+    .mode("overwrite")\
+    .save(f"s3a://{conf_s3.get('AWS_S3_BUCKET')}/data/fuel_data/{dt.date.today().strftime('%Y%m%d')}/places_details.parquet")

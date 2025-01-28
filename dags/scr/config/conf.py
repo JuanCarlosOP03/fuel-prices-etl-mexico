@@ -24,6 +24,16 @@ class AppSettings(object):
     def url_place_details(self):
         return os.getenv('__URL_PLACE_DETAIL', 'N/A')
     
+    @property
+    def conf_s3(self):
+        return {
+            'AWS_S3_BUCKET': 'bi-services',
+            'AWS_REGION': os.getenv('AWS_REGION', 'N/A'),
+            'AWS_S3_ENDPOINT': os.getenv('AWS_S3_ENDPOINT', 'N/A'),
+            'AWS_ACCESS_KEY_ID': os.getenv('AWS_ACCESS_KEY_ID', 'N/A'),
+            'AWS_SECRET_ACCESS_KEY': os.getenv('AWS_SECRET_ACCESS_KEY', 'N/A'),
+        }
+    
 
 if __name__ == '__main__':
     s = AppSettings()
